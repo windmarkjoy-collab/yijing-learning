@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>馬克易經學習系統</title>
+<style>
+:root{
+  --bg:#f6f2e8; --card:#fffdf7; --ink:#29261f; --muted:#736d61;
+  --line:#ded6c7; --accent:#7d5a3a; --soft:#ede3d1; --good:#355f42;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:22px 18px 14px;background:#221f1a;color:#fff;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:22px}
+header p{margin:5px 0 0;color:#d9d2c6;font-size:13px}
+.wrap{max-width:980px;margin:auto;padding:18px}
+.nav{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.nav button{border:0;border-radius:12px;padding:12px 6px;background:#e9e1d3;color:#3a342c;font-weight:700}
+.nav button.active{background:#2e2a24;color:white}
+.page{display:none}.page.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px;box-shadow:0 3px 12px rgba(0,0,0,.03)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.big{font-size:36px;font-weight:800}
+.muted{color:var(--muted);font-size:14px}
+.progress{height:12px;background:#e7dfd1;border-radius:999px;overflow:hidden}
+.progress > div{height:100%;background:var(--accent);width:0}
+.btn{display:inline-block;border:0;border-radius:12px;background:#2e2a24;color:#fff;padding:11px 15px;font-weight:700;cursor:pointer}
+.btn.secondary{background:#e9e1d3;color:#2e2a24}
+.trigram{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tri{border:1px solid var(--line);border-radius:15px;padding:14px;background:#fff}
+.symbol{font-size:42px}
+.quiz-option{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;padding:12px;margin:8px 0;border-radius:12px}
+.quiz-option.correct{border-color:#5c8b67;background:#edf6ef}
+.quiz-option.wrong{border-color:#a55;background:#faeeee}
+input,textarea,select{width:100%;padding:11px;border:1px solid #cfc6b8;border-radius:10px;background:#fff;font:inherit}
+textarea{min-height:110px;resize:vertical}
+label{font-weight:700;display:block;margin:10px 0 6px}
+.pill{display:inline-block;padding:5px 9px;border-radius:999px;background:var(--soft);font-size:12px;margin:2px 4px 2px 0}
+.lesson h3{margin-top:0}
+.lesson-block{border-left:4px solid var(--accent);padding-left:12px;margin:14px 0}
+#journalList .entry{border-top:1px solid var(--line);padding:12px 0}
+.small{font-size:12px}
+@media(max-width:700px){
+ .nav{grid-template-columns:repeat(5,1fr);font-size:12px}
+ .grid,.trigram{grid-template-columns:1fr}
+ .wrap{padding:12px}
+}
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#221f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="馬克易經">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+</head>
+<body>
+<header>
+  <h1>☯ 馬克易經學習系統</h1>
+  <p>每天 10 分鐘，把「背卦」變成「看懂變化」</p>
+</header>
+
+<div class="wrap">
+  <div class="nav">
+    <button class="active" onclick="showPage('home',this)">首頁</button>
+    <button onclick="showPage('learn',this)">每日學習</button>
+    <button onclick="showPage('bagua',this)">八卦</button>
+    <button onclick="showPage('quiz',this)">測驗</button>
+    <button onclick="showPage('journal',this)">日誌</button>
+  </div>
+
+  <section id="home" class="page active">
+    <div class="card">
+      <div class="muted">目前等級</div>
+      <div class="big" id="levelText">易經初學者</div>
+      <p>今天的目標：完成一課＋至少 3 題測驗。</p>
+      <div class="progress"><div id="mainProgress"></div></div>
+      <p class="muted" id="progressText"></p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="muted">已完成課程</div>
+        <div class="big"><span id="lessonsDone">0</span>/7</div>
+      </div>
+      <div class="card">
+        <div class="muted">測驗答對</div>
+        <div class="big"><span id="correctCount">0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>能力樹</h3>
+      <p>八卦辨識 <span id="s1">0%</span></p><div class="progress"><div id="p1"></div></div>
+      <p>卦象理解 <span id="s2">0%</span></p><div class="progress"><div id="p2"></div></div>
+      <p>生活應用 <span id="s3">0%</span></p><div class="progress"><div id="p3"></div></div>
+    </div>
+  </section>
+
+  <section id="learn" class="page">
+    <div class="card">
+      <h2>第一週：建立易經的語言</h2>
+      <p class="muted">先把陰陽、八卦與「象」搞懂，再進入六十四卦。</p>
+      <select id="lessonSelect" onchange="renderLesson()">
+        <option value="0">Day 1｜陰陽、爻、八卦</option>
+        <option value="1">Day 2｜乾與坤</option>
+        <option value="2">Day 3｜震與巽</option>
+        <option value="3">Day 4｜坎與離</option>
+        <option value="4">Day 5｜艮與兌</option>
+        <option value="5">Day 6｜八卦總整理</option>
+        <option value="6">Day 7｜生活情境總複習</option>
+      </select>
+    </div>
+    <div id="lessonBody"></div>
+  </section>
+
+  <section id="bagua" class="page">
+    <div class="card"><h2>八卦學習卡</h2><p class="muted">先記「核心作用」，不要一開始塞滿所有象數資料。</p></div>
+    <div class="trigram" id="baguaGrid"></div>
+  </section>
+
+  <section id="quiz" class="page">
+    <div class="card">
+      <h2>快速測驗</h2>
+      <div id="quizBox"></div>
+      <button class="btn secondary" onclick="nextQuestion()">換一題</button>
+    </div>
+  </section>
+
+  <section id="journal" class="page">
+    <div class="card">
+      <h2>易經案例／占卦日誌</h2>
+      <p class="muted">可以記真實事件，也可以記占卦結果。重點是之後回頭驗證。</p>
+      <label>日期</label><input type="date" id="jDate">
+      <label>問題／事件</label><input id="jQuestion" placeholder="例：這個合作案目前為什麼卡住？">
+      <label>本卦</label><input id="jBen" placeholder="例：水雷屯">
+      <label>動爻／變卦</label><input id="jChange" placeholder="可留白">
+      <label>當下解讀</label><textarea id="jRead" placeholder="我現在怎麼理解這個局面？"></textarea>
+      <label>後續驗證</label><textarea id="jResult" placeholder="幾天或幾週後回來補結果"></textarea>
+      <button class="btn" onclick="saveJournal()">儲存日誌</button>
+    </div>
+    <div class="card"><h3>我的紀錄</h3><div id="journalList"></div></div>
+  </section>
+</div>
+
+<script>
+const bagua = [
+ {n:'乾',s:'☰',nat:'天',core:'健・創造・主動',tip:'像是不斷運行的天。適合主動開創，但過度則可能變成「亢」。'},
+ {n:'坤',s:'☷',nat:'地',core:'順・承載・包容',tip:'不是弱，而是能承接、讓事情落地。'},
+ {n:'震',s:'☳',nat:'雷',core:'動・發動・驚起',tip:'事情被啟動，常伴隨突然的變化。'},
+ {n:'巽',s:'☴',nat:'風',core:'入・滲透・漸進',tip:'像風一樣進入縫隙，適合柔性的影響與長期滲透。'},
+ {n:'坎',s:'☵',nat:'水',core:'險・陷・流動',tip:'不是單純壞，而是在風險中找到通過的方法。'},
+ {n:'離',s:'☲',nat:'火',core:'明・附著・辨識',tip:'火要依附燃料而明，因此有「明」也有「附麗」。'},
+ {n:'艮',s:'☶',nat:'山',core:'止・界線・收斂',tip:'知道什麼時候停，是能力，不是退縮。'},
+ {n:'兌',s:'☱',nat:'澤',core:'悅・交流・開口',tip:'與愉悅、溝通、互動有關，但過度迎合也要小心。'}
+];
+
+const lessons = [
+ {title:'Day 1｜陰陽、爻、八卦', body:[
+  ['核心觀念','《易經》關心的不是「事情是什麼」，而是「事情正在怎麼變」。'],
+  ['陰陽','陽爻 ⚊ 常指主動、外放、剛健；陰爻 ⚋ 常指承受、內收、柔順。陰不是壞，陽也不是好，重點是時位是否合適。'],
+  ['爻與卦','一爻只有陰或陽；三爻組成八卦；六爻組成六十四卦。'],
+  ['今天要記住','易經不是教你永遠往前，而是辨認何時進、退、停、等。']
+ ]},
+ {title:'Day 2｜乾與坤', body:[
+  ['乾 ☰','核心是「健」：主動、創造、持續運行。不是蠻幹，而是有方向地前進。'],
+  ['坤 ☷','核心是「順」：承載、配合、落地。不是消極，而是讓事情成形。'],
+  ['搭配','乾像發起，坤像承接。只有創意沒有承接，事情不會落地；只有承接沒有發起，也可能缺乏方向。']
+ ]},
+ {title:'Day 3｜震與巽', body:[
+  ['震 ☳','雷，核心是「動」。像第一聲雷把沉睡的局面叫醒。'],
+  ['巽 ☴','風，核心是「入」。不是強推，而是持續滲透與影響。'],
+  ['比較','震像「開始動」，巽像「慢慢進」。一個快、一個柔。']
+ ]},
+ {title:'Day 4｜坎與離', body:[
+  ['坎 ☵','水，核心是「險」。重點不是害怕，而是學會在危險中通過。'],
+  ['離 ☲','火，核心是「明」與「附」。看清楚，也必須有所依附。'],
+  ['比較','坎常提醒風險與深陷；離常提醒辨識、文明、可見性與依附條件。']
+ ]},
+ {title:'Day 5｜艮與兌', body:[
+  ['艮 ☶','山，核心是「止」。設定界線、停止不合時宜的動作。'],
+  ['兌 ☱','澤，核心是「悅」。與溝通、交換、說服、喜悅有關。'],
+  ['比較','艮讓事情停下來；兌讓人與人重新產生交流。']
+ ]},
+ {title:'Day 6｜八卦總整理', body:[
+  ['八個動詞','乾＝創、坤＝承、震＝動、巽＝入、坎＝險、離＝明、艮＝止、兌＝悅。'],
+  ['學習方法','看到卦時先問：它在做什麼？不要急著背長篇解釋。'],
+  ['下一步','八卦熟悉後，才把上下兩個八卦組合起來理解六十四卦。']
+ ]},
+ {title:'Day 7｜生活情境總複習', body:[
+  ['實戰','遇到事情時，試著先判斷它現在像哪種「力」：是要動、要停、要承接、要穿透，還是正在冒險？'],
+  ['避免過度解讀','易經可以作為思考框架，但不能取代事實查證、專業判斷與現實條件。'],
+  ['完成第一週','如果你能用自己的話說出八卦的核心作用，就可以進入六十四卦。']
+ ]}
+];
+
+const questions = [
+ {q:'三條都是陽爻，是哪一卦？',o:['坤','乾','坎','震'],a:1,tag:'bagua'},
+ {q:'「山」最核心的象意是？',o:['動','悅','止','險'],a:2,tag:'bagua'},
+ {q:'事情出問題，先停下來查原因，比較接近？',o:['乾','震','艮','兌'],a:2,tag:'apply'},
+ {q:'哪一項最符合「坤」？',o:['主動開創','承接落地','突然啟動','停止'],a:1,tag:'meaning'},
+ {q:'「巽」比較接近哪個概念？',o:['滲透','停止','危險','爆發'],a:0,tag:'meaning'},
+ {q:'面對高風險但必須找到通過方法，較像哪一卦？',o:['兌','艮','坎','坤'],a:2,tag:'apply'},
+ {q:'「兌」較接近？',o:['交流與悅','封閉與止','危險','承載'],a:0,tag:'meaning'},
+ {q:'哪句比較符合易經的陰陽觀？',o:['陽永遠比較好','陰代表負面','陰陽要看時位是否合適','陰只能代表女性'],a:2,tag:'meaning'}
+];
+
+let state = JSON.parse(localStorage.getItem('yijingState') || '{"done":[],"correct":0,"attempts":0,"scores":{"bagua":0,"meaning":0,"apply":0},"journals":[]}');
+let currentQ = 0;
+
+function save(){ localStorage.setItem('yijingState', JSON.stringify(state)); updateDashboard(); }
+function showPage(id,btn){
+ document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+ document.getElementById(id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+ btn.classList.add('active');
+}
+function renderLesson(){
+ const i=+document.getElementById('lessonSelect').value;
+ const L=lessons[i];
+ let h=`<div class="card lesson"><h2>${L.title}</h2>`;
+ L.body.forEach(x=>h+=`<div class="lesson-block"><h3>${x[0]}</h3><p>${x[1]}</p></div>`);
+ const done=state.done.includes(i);
+ h+=`<button class="btn" onclick="completeLesson(${i})">${done?'✓ 已完成':'完成這一課'}</button></div>`;
+ document.getElementById('lessonBody').innerHTML=h;
+}
+function completeLesson(i){
+ if(!state.done.includes(i)) state.done.push(i);
+ save(); renderLesson();
+}
+function renderBagua(){
+ document.getElementById('baguaGrid').innerHTML=bagua.map(x=>`
+ <div class="tri"><div class="symbol">${x.s}</div><h3>${x.n}｜${x.nat}</h3>
+ <div class="pill">${x.core}</div><p>${x.tip}</p></div>`).join('');
+}
+function nextQuestion(){
+ currentQ=Math.floor(Math.random()*questions.length);
+ renderQuestion();
+}
+function renderQuestion(){
+ const q=questions[currentQ];
+ document.getElementById('quizBox').innerHTML=`<h3>${q.q}</h3>`+
+ q.o.map((x,i)=>`<button class="quiz-option" onclick="answer(${i},this)">${String.fromCharCode(65+i)}. ${x}</button>`).join('');
+}
+function answer(i,el){
+ const q=questions[currentQ];
+ state.attempts++;
+ const all=[...document.querySelectorAll('.quiz-option')];
+ all.forEach((b,idx)=>{b.disabled=true;if(idx===q.a)b.classList.add('correct')});
+ if(i===q.a){state.correct++;state.scores[q.tag]=(state.scores[q.tag]||0)+1;}
+ else el.classList.add('wrong');
+ save();
+}
+function updateDashboard(){
+ document.getElementById('lessonsDone').textContent=state.done.length;
+ document.getElementById('correctCount').textContent=state.correct;
+ let pct=Math.round((state.done.length/7)*60 + Math.min(state.correct,10)*4);
+ pct=Math.min(pct,100);
+ document.getElementById('mainProgress').style.width=pct+'%';
+ document.getElementById('progressText').textContent=`第一階段完成度 ${pct}%`;
+ document.getElementById('levelText').textContent=pct>=80?'八卦入門完成':pct>=40?'八卦學習者':'易經初學者';
+ const vals={
+   bagua:Math.min(100,(state.scores.bagua||0)*25),
+   meaning:Math.min(100,(state.scores.meaning||0)*20),
+   apply:Math.min(100,(state.scores.apply||0)*25)
+ };
+ [['bagua','s1','p1'],['meaning','s2','p2'],['apply','s3','p3']].forEach(x=>{
+   document.getElementById(x[1]).textContent=vals[x[0]]+'%';
+   document.getElementById(x[2]).style.width=vals[x[0]]+'%';
+ });
+}
+function saveJournal(){
+ const e={
+  date:document.getElementById('jDate').value,
+  q:document.getElementById('jQuestion').value.trim(),
+  ben:document.getElementById('jBen').value.trim(),
+  change:document.getElementById('jChange').value.trim(),
+  read:document.getElementById('jRead').value.trim(),
+  result:document.getElementById('jResult').value.trim(),
+  id:Date.now()
+ };
+ if(!e.q){alert('至少填寫「問題／事件」');return;}
+ state.journals.unshift(e); save(); renderJournals();
+ ['jQuestion','jBen','jChange','jRead','jResult'].forEach(id=>document.getElementById(id).value='');
+}
+function renderJournals(){
+ const box=document.getElementById('journalList');
+ if(!state.journals.length){box.innerHTML='<p class="muted">目前還沒有紀錄。</p>';return;}
+ box.innerHTML=state.journals.map(e=>`<div class="entry">
+ <div class="small muted">${e.date||'未填日期'}</div><strong>${e.q}</strong>
+ <p>${e.ben?`本卦：${e.ben}`:''} ${e.change?`｜${e.change}`:''}</p>
+ ${e.read?`<p>解讀：${e.read}</p>`:''}${e.result?`<p>驗證：${e.result}</p>`:''}
+ <button class="btn secondary" onclick="deleteJournal(${e.id})">刪除</button></div>`).join('');
+}
+function deleteJournal(id){state.journals=state.journals.filter(x=>x.id!==id);save();renderJournals();}
+document.getElementById('jDate').value=new Date().toISOString().slice(0,10);
+renderBagua(); renderLesson(); nextQuestion(); renderJournals(); updateDashboard();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>
