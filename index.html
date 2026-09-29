@@ -46,6 +46,13 @@ label{font-weight:700;display:block;margin:10px 0 6px}
  .grid,.trigram{grid-template-columns:1fr}
  .wrap{padding:12px}
 }
+
+.auth-card{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.auth-card .field{flex:1;min-width:180px}
+.auth-status{margin-left:auto;min-width:180px;text-align:right}
+.setup-note{background:#fff3cd;border:1px solid #e0c56b;border-radius:12px;padding:12px;margin-top:10px}
+@media(max-width:700px){.auth-status{width:100%;text-align:left;margin-left:0}}
+
 </style>
 
 <link rel="manifest" href="manifest.webmanifest">
@@ -61,6 +68,32 @@ label{font-weight:700;display:block;margin:10px 0 6px}
   <h1>☯ 馬克易經學習系統</h1>
   <p>每天 10 分鐘，把「背卦」變成「看懂變化」</p>
 </header>
+
+<div class="wrap" id="authArea">
+  <div class="card">
+    <div class="auth-card">
+      <div class="field">
+        <label>電子郵件</label>
+        <input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com">
+      </div>
+      <div class="field">
+        <label>密碼</label>
+        <input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 6 碼">
+      </div>
+      <button class="btn" id="loginBtn" onclick="signInUser()">登入</button>
+      <button class="btn secondary" id="signupBtn" onclick="signUpUser()">建立帳號</button>
+      <button class="btn secondary" id="logoutBtn" onclick="signOutUser()" style="display:none">登出</button>
+      <div class="auth-status">
+        <div class="muted">目前使用者</div>
+        <strong id="authUser">尚未登入</strong>
+      </div>
+    </div>
+    <div id="authMessage" class="muted" style="margin-top:10px"></div>
+    <div id="setupNotice" class="setup-note" style="display:none">
+      雲端登入尚未完成設定。完成 Supabase 設定後即可啟用多人帳號與跨裝置同步。
+    </div>
+  </div>
+</div>
 
 <div class="wrap">
   <div class="nav">
@@ -298,6 +331,11 @@ function deleteJournal(id){state.journals=state.journals.filter(x=>x.id!==id);sa
 document.getElementById('jDate').value=new Date().toISOString().slice(0,10);
 renderBagua(); renderLesson(); nextQuestion(); renderJournals(); updateDashboard();
 </script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./supabase-config.js"></script>
+<script src="./auth.js"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
