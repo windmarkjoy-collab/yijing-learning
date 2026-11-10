@@ -10,7 +10,7 @@ function message(text,error=false){$('message').textContent=text;$('message').cl
 async function action(fn){if(busy)return;busy=true;try{await fn();}catch(e){message(e.message,true);}finally{busy=false;}}
 const initial=()=>({schemaVersion:1,startDate:$('startDate').value||today(),rules:clone(defaults),days:{},audit:[],phase:1,unlockedAt:null,activeTier:null});
 function validate(s){if(!s||s.schemaVersion!==1||!s.rules||!s.days||!Array.isArray(s.audit))throw Error('不是有效的家庭備份');const r=s.rules;if(!Array.isArray(r.positive)||!Array.isArray(r.categories)||!Array.isArray(r.exercises)||!r.phase2||!Array.isArray(r.phase2.tiers))throw Error('規則資料不完整');if(r.startScore!==80000||r.targetScore!==100000||r.dailyPositiveCap!==500||r.violationPenalty!==500||r.dailyViolationLimit!==2)throw Error('第一階段核心分數規則不符');for(const p of r.positive)if(!Number.isInteger(p.points)||p.points<0||p.points>500)throw Error('正向分數不正確');for(const [date,d]of Object.entries(s.days)){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Array.isArray(d.events))throw Error('日期紀錄格式不正確');if(d.settlement&&(!Number.isInteger(d.settlement.delta)||d.settlement.delta< -1000||d.settlement.delta>500))throw Error('結算資料不正確');}return s;}
-async function load(){const result=await rpc('ft_read',{access_code:access});state=validate(result.state);revision=result.revision;role=result.role;$('welcome').hidden=true;$('app').hidden=false;$('connection').textContent=(role==='parent'?'家長管理':'孩子查看')+' · 已同步';render();}
+async function load(){const result=await rpc('ft_read',{access_code:access});state=validate(result.state);$('gift-settings')?.replaceChildren();giftStorageKey='ft-gifts:'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(access))),x=>x.toString(16).padStart(2,'0')).join('');revision=result.revision;role=result.role;$('welcome').hidden=true;$('app').hidden=false;$('connection').textContent=(role==='parent'?'家長管理':'孩子查看')+' · 已同步';render();}
 async function save(next,description){if(role!=='parent')throw Error('只有爸媽可以修改紀錄');validate(next);next.audit.push({at:new Date().toISOString(),text:description,...(JSON.stringify(state.rules)!==JSON.stringify(next.rules)?{beforeRules:clone(state.rules),afterRules:clone(next.rules)}:{})});const result=await rpc('ft_write',{access_code:access,expected_revision:revision,next_state:next});state=next;revision=result.revision;render();message('已儲存並同步');}
 function day(s=state){return s.days[$('date').value]||{events:[],note:''};}
 function mutable(s){const date=$('date').value;if(!date||date<state.startDate||date>today())throw Error('請選開始日期至今天之間的日期');s.days[date]??={events:[],note:''};if(s.days[date].settlement)throw Error('此日已結算，請先選擇更正並填寫原因');return s.days[date];}
@@ -22,7 +22,7 @@ function render(){const t=timeline(state.days,state.rules),r=state.rules,d=day()
  $('ruleSummary').innerHTML='<p>起始 80%，100% 解鎖。目標 60 天，可提早；最快 40 個完整正向結算日。每日正向最多 +0.5%，每次明確違約 −0.5%，每日最多兩次。未滿 100% 不因時間到期自動解鎖。</p>';
  $('safeguards').innerHTML=r.safeguards.map(x=>'<div class="list-item">🌿 '+esc(x)+'</div>').join('');$('categoryList').innerHTML=r.categories.map(x=>'<div class="list-item">'+esc(x)+'</div>').join('');$('exerciseList').innerHTML=r.exercises.map(x=>'<div class="list-item">'+esc(x)+'</div>').join('');
  const chosen=r.phase2.fallback==='parent-review'?r.phase2.tiers.filter(x=>(state.activeTiers||[]).includes(x.id)):entitlements(t.score,{...r.phase2,enabled:state.phase===2});$('entitlements').innerHTML='<p>'+(state.phase===2?'目前級距：'+esc(chosen.map(x=>x.name+'（'+x.kind+'）').join('、')||'尚無符合級距'):'尚未啟用；目前以第一階段約定為準。')+'</p>'+r.phase2.tiers.map(x=>'<div class="list-item"><strong>'+esc(x.name)+' · '+pct(x.minimum)+' 起</strong><br>'+esc(x.kind)+'，每'+(x.period==='week'?'週':'日')+' '+x.minutes+' 分鐘 · '+(x.unlocked?'解鎖':'未解鎖')+'</div>').join('');
- renderHistory(t);if(parent)renderEditors();}
+ renderHistory(t);if(parent)renderEditors();renderGifts(t,parent);}
 function renderHistory(t){const p=t.points.filter(x=>!x.pending);const chartPoints=[{score:state.rules.startScore},...p];const ys=chartPoints.map(x=>x.score),min=Math.min(78000,...ys),max=100000;const coords=chartPoints.map((x,i)=>`${40+i*920/Math.max(1,chartPoints.length-1)},${165-(x.score-min)/(max-min)*130}`).join(' ');$('chart').innerHTML='<svg viewBox="0 0 1000 210" role="img" aria-label="已結算信任進度折線圖"><line x1="40" y1="35" x2="960" y2="35" stroke="#dce5d7" stroke-dasharray="6 6"/><text x="40" y="24" fill="#71817a" font-size="14">100% 解鎖線</text><polyline points="'+coords+'" fill="none" stroke="#608467" stroke-width="4" stroke-linejoin="round"/><text x="40" y="198" fill="#71817a" font-size="13">'+esc(state.startDate)+' · 起始80%</text><text x="950" y="198" text-anchor="end" fill="#71817a" font-size="13">'+esc(p.at(-1)?.date||'等待第一次結算')+'</text></svg>';
  $('historyList').innerHTML=Object.entries(state.days).sort(([a],[b])=>b.localeCompare(a)).map(([date,d])=>'<div class="card"><div class="section-title"><h3>'+esc(date)+'</h3><span class="badge">'+(d.settlement?'已結算 '+(d.settlement.delta>=0?'+':'')+pct(d.settlement.delta):'尚未結算')+'</span></div><p>'+esc(d.note||'尚無共同回顧')+'</p>'+d.events.map(e=>'<div class="list-item">'+esc(e.title)+' · '+esc(e.status==='approved'?'已確認':e.status==='rejected'?'不計分':'待確認')+'<br><span class="subtle">'+esc(e.note)+'</span></div>').join('')+'</div>').join('')||'<div class="card"><p>還沒有紀錄，今天就是開始。</p></div>';$('audit').innerHTML=[...state.audit].reverse().map(a=>'<div class="list-item"><small>'+esc(new Date(a.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))+'</small><br>'+esc(a.text)+(a.beforeRules?'<details><summary>查看修訂前後規則</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(JSON.stringify({修訂前:a.beforeRules,修訂後:a.afterRules},null,2))+'</pre></details>':'')+'</div>').join('')||'<p>尚無修訂。</p>';}
 function renderEditors(){const r=state.rules;$('editors').innerHTML=[['categories','約定類別'],['exercises','運動清單'],['safeguards','友善條款']].map(([key,label])=>'<h3>'+label+'</h3>'+r[key].map((x,i)=>'<div class="edit-line"><input aria-label="'+label+'" value="'+esc(x)+'" id="'+key+i+'"><button data-update-list="'+key+':'+i+'">儲存</button><button data-remove-list="'+key+':'+i+'">刪除</button></div>').join('')+'<button data-add-list="'+key+'">新增'+label+'</button>').join('')+'<h3>正向項目</h3>'+r.positive.map(p=>'<div class="row"><div class="grow">'+esc(p.name)+' +'+pct(p.points)+'</div><button data-edit-positive="'+esc(p.id)+'">編輯</button><button data-remove-positive="'+esc(p.id)+'">刪除</button></div>').join('')+'<button id="addPositive">新增正向項目</button>';$('tiers').innerHTML=r.phase2.tiers.map(x=>'<div class="tier"><strong>'+esc(x.name)+'</strong><p>'+pct(x.minimum)+' 起 · '+esc(x.kind)+' · 每'+(x.period==='week'?'週':'日')+' '+x.minutes+' 分鐘 · '+(x.unlocked?'解鎖':'未解鎖')+'</p><button data-edit-tier="'+esc(x.id)+'">編輯</button><button data-remove-tier="'+esc(x.id)+'">刪除</button></div>').join('');$('fallback').value=r.phase2.fallback;}
@@ -40,6 +40,65 @@ function download(s,suffix=''){const blob=new Blob([JSON.stringify({format:'fami
 $('backup').onclick=()=>download(state);$('restore').onchange=e=>action(async()=>{const file=e.target.files[0];if(!file)return;if(file.size>1000000)throw Error('檔案超過1MB');const raw=JSON.parse(await file.text());if(raw.format!=='family-trust-v1')throw Error('備份格式不正確');const next=validate(raw.state);if(!await confirmUI('復原會取代目前紀錄。繼續前會下載目前備份，是否繼續？'))return;download(state,'-復原前');next.audit.push(...state.audit,{at:new Date().toISOString(),text:'從備份復原；先前資料已下載備份'});await save(next,'家長復原備份');});
 async function editTier(edit,remove){return mutate('修訂第二階段級距',async s=>{const tiers=s.rules.phase2.tiers,p=tiers.find(x=>x.id===(edit||remove));if(remove){if(!await confirmUI('刪除此級距？'))throw Error('已取消');s.rules.phase2.tiers=tiers.filter(x=>x!==p);return;}const name=await ask('級距名稱',p?.name||'自主練習');const minimum=Math.round(Number(await ask('最低信任百分比 0–100',String((p?.minimum??90000)/1000)))*1000);const kind=await ask('使用種類（例如：3C遊戲、紙本漫畫、電子漫畫）',p?.kind||'3C遊戲');const period=await ask('時間單位：day（每日）或 week（每週）',p?.period||'day');const minutes=Number(await ask('使用分鐘數',String(p?.minutes??30)));const unlocked=await ask('是否解鎖？填 yes 或 no',p?.unlocked===false?'no':'yes')==='yes';if(!name||!kind||!Number.isInteger(minimum)||minimum<0||minimum>100000||!['day','week'].includes(period)||!Number.isInteger(minutes)||minutes<0)throw Error('級距資料不正確');const next={id:p?.id||id(),name,minimum,kind,period,minutes,unlocked};if(p)Object.assign(p,next);else tiers.push(next);});}
 $('fallback').onchange=()=>action(()=>mutate('修訂第二階段回退方式',async s=>{s.rules.phase2.fallback=$('fallback').value;}));$('activate').onclick=()=>action(()=>mutate('按約解鎖後啟用第二階段',async s=>{if(!s.unlockedAt)throw Error('請先完成第一階段100%解鎖');if(!s.rules.phase2.tiers.length)throw Error('請先共同訂定級距');if(!await confirmUI('確認已按第一階段約定解鎖娛樂性3C與漫畫，且已全家討論第二階段規則？'))throw Error('已取消');s.phase=2;s.rules.phase2.enabled=true;s.activeTiers=entitlements(timeline(s.days,s.rules).score,s.rules.phase2).map(x=>x.id);}));$('reviewTier').onclick=()=>action(()=>mutate('家長共同回顧確認級距',async s=>{if(s.phase!==2)throw Error('尚未啟用第二階段');s.activeTiers=entitlements(timeline(s.days,s.rules).score,s.rules.phase2).map(x=>x.id);}));
+
+const giftStages=[[85,85],[90,88],[95,93],[100,98]];
+const giftText=n=>state.rules.gifts?.[n]??(n===85?'吃西堤牛排':'');
+function giftStatus(n,h,t){const peak=t.points.reduce((p,x)=>x.pending?p:Math.max(p,x.score),t.score);return {ready:peak>=n*1000,hint:t.score>=h*1000};}
+function renderGifts(t,parent){
+ let track=$('gift-track');
+ if(!track){
+  const css=document.createElement('style');css.textContent=`
+  .hero .progress{overflow:visible;position:relative;margin-top:20px}.hero #bar{max-width:100%}
+  #gift-track{position:absolute;inset:0 18px 0 0;pointer-events:none}
+  #gift-track button{position:absolute;left:var(--at);top:6px;transform:translate(-50%,-50%);pointer-events:auto;display:grid;place-items:center;min-height:44px;width:44px;margin:0;padding:0;border-radius:14px;font-size:21px;background:#f9fbf5;border:2px solid #adc1a5;line-height:1}
+  #gift-track button[data-ready=true]{background:#fff3cd;border-color:#c29848;box-shadow:0 2px 8px #80603230}
+  #gift-track small{font-size:10px;color:#345848;line-height:1;padding-bottom:3px}
+  #gift-hints{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;font-size:13px;margin-top:-5px}
+  #gift-hints:empty{display:none}.gift-modal{border:1px solid #dbe3dc;border-radius:22px;padding:28px;width:min(420px,90vw);text-align:center;color:#234f45}.gift-modal::backdrop{background:#172c2680}.gift-box{font-size:60px;display:block;margin:12px}.gift-result{overflow-wrap:anywhere}.gift-hint{background:#f9fbf5;border-radius:12px;padding:6px 10px;overflow-wrap:anywhere;max-width:100%}
+  `;document.head.append(css);
+  track=document.createElement('div');track.id='gift-track';track.setAttribute('aria-label','禮物里程碑');$('bar').parentElement.append(track);
+  const hints=document.createElement('div');hints.id='gift-hints';$('bar').parentElement.parentElement.append(hints);
+ }
+ track.replaceChildren();$('gift-hints').replaceChildren();
+ for(const [n,h] of giftStages){
+  const {ready,hint}=giftStatus(n,h,t), opened=giftWasOpened(n), name=giftText(n);
+  const b=document.createElement('button');b.type='button';b.style.setProperty('--at',((n-80)*5)+'%');b.dataset.ready=ready;b.setAttribute('aria-label',n+'% 禮物：'+(ready?(opened?'已拆封':'可以拆封'):hint?'可看提示':'尚未達標'));
+  b.append(document.createTextNode(ready&&opened?'🎉':'🎁'));const label=document.createElement('small');label.textContent=n+'%';b.append(label);
+  b.onclick=()=>showGift(n,h,t,parent);track.append(b);
+  if(hint&&!ready){const tag=document.createElement('span');tag.className='gift-hint';tag.textContent='🔎 '+n+'% 禮物提示：'+(name||'爸媽還在準備驚喜');$('gift-hints').append(tag);}
+ }
+ if(parent)renderGiftSettings();
+}
+let giftStorageKey='';
+function giftWasOpened(n){try{return !!giftStorageKey&&localStorage.getItem(giftStorageKey+':'+n)===giftText(n);}catch{return false;}}
+function showGift(n,h,t,parent){
+ const {ready,hint}=giftStatus(n,h,t), name=giftText(n), opened=giftWasOpened(n);
+ const d=document.createElement('dialog');d.className='gift-modal';const title=document.createElement('h2');title.textContent=n+'% 里程碑禮物';
+ const box=document.createElement('span');box.className='gift-box';box.textContent=ready&&opened?'🎉':'🎁';box.setAttribute('aria-hidden','true');
+ const result=document.createElement('p');result.className='gift-result';result.setAttribute('aria-live','polite');
+ const close=document.createElement('button');close.type='button';close.textContent='關閉';close.onclick=()=>d.close();
+ d.append(title,box,result,close);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});
+ if(!ready)result.textContent=hint?'禮物提示：'+(name||'爸媽還在準備驚喜'):'到 '+h+'% 可以先看提示，達 '+n+'% 就能拆禮物。';
+ else if(!name)result.textContent='已達標！爸媽還在準備這一份禮物。';
+ else if(opened)result.textContent=name;
+ d.showModal();
+ if(ready&&name&&!opened){
+  result.textContent='正在拆開禮物…';
+  const reveal=()=>{if(!d.open)return;box.textContent='🎉';result.textContent=name;try{if(giftStorageKey)localStorage.setItem(giftStorageKey+':'+n,name);}catch{}renderGifts(t,parent);};
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches||!box.animate)reveal();
+  else box.animate([{transform:'rotate(0) scale(1)'},{transform:'rotate(-14deg) scale(1.12)'},{transform:'rotate(14deg) scale(1.24)'},{transform:'rotate(0) scale(1.4)',opacity:.4}],{duration:620,easing:'ease-in-out'}).finished.then(reveal,()=>{});
+ }
+}
+function renderGiftSettings(){
+ let panel=$('gift-settings');if(!panel){panel=document.createElement('div');panel.id='gift-settings';panel.className='card';$('editors').parentElement.before(panel);}
+ if(panel.children.length)return;
+ const heading=document.createElement('h3');heading.textContent='進度條禮物';const note=document.createElement('p');note.textContent='設定四個里程碑的禮物內容。90%、95%、100% 的提示會分別在 88%、93%、98% 出現。';panel.append(heading,note);
+ const form=document.createElement('form');
+ for(const [n] of giftStages){const l=document.createElement('label');l.textContent=n+'% 禮物';const i=document.createElement('input');i.name='gift-'+n;i.maxLength=120;i.value=giftText(n);i.placeholder='還沒決定可以留白';l.append(i);form.append(l);}
+ const saveButton=document.createElement('button');saveButton.className='primary';saveButton.textContent='儲存禮物設定';form.append(saveButton);
+ form.onsubmit=e=>{e.preventDefault();action(async()=>{const values=new FormData(form);await mutate('修訂里程碑禮物',s=>{s.rules.gifts=Object.fromEntries(giftStages.map(([n])=>[n,String(values.get('gift-'+n)||'').trim()]));});});};panel.append(form);
+}
+
 $('date').value=today();$('date').max=today();$('startDate').value=today();access=sessionStorage.getItem('ft-access')||'';if(access)action(load);
 
 
@@ -47,3 +106,4 @@ $('date').value=today();$('date').max=today();$('startDate').value=today();acces
 function dialogInput(label,value,confirmation=false){return new Promise(resolve=>{const d=document.createElement('dialog');d.style.cssText='border:1px solid #d9e0d7;border-radius:18px;padding:26px;max-width:90vw;width:460px;color:#273c37';const form=document.createElement('form');form.method='dialog';const title=document.createElement('h3');title.textContent=label;form.append(title);let input;if(!confirmation){input=document.createElement('input');input.value=value||'';input.setAttribute('aria-label',label);form.append(input);}const ok=document.createElement('button');ok.className='primary';ok.textContent='確認';ok.value='ok';const cancel=document.createElement('button');cancel.textContent='取消';cancel.value='cancel';form.append(ok,cancel);d.append(form);document.body.append(d);d.addEventListener('close',()=>{const result=d.returnValue==='ok'?(confirmation?true:input.value):confirmation?false:null;d.remove();resolve(result);},{once:true});d.showModal();if(input)input.focus();});}
 async function ask(label,value=''){const text=await dialogInput(label,value);if(text===null)throw Error('已取消');return text.trim();}
 async function confirmUI(label){return dialogInput(label,'',true);}
+
