@@ -45,6 +45,8 @@ const giftStages=[[85,85],[90,88],[95,93],[100,98]];
 const giftText=n=>state.rules.gifts?.[n]??(n===85?'吃西堤牛排':'');
 function giftStatus(n,h,t){const peak=t.points.reduce((p,x)=>x.pending?p:Math.max(p,x.score),t.score);return {ready:peak>=n*1000,hint:t.score>=h*1000};}
 function renderGifts(t,parent){
+ const finalLabel=document.querySelector('.hero-foot > span:last-child');
+ if(finalLabel)finalLabel.hidden=!(state.unlockedAt||t.score>=state.rules.targetScore);
  let track=$('gift-track');
  if(!track){
   const css=document.createElement('style');css.textContent=`
@@ -87,7 +89,12 @@ function showGift(n,h,t,parent){
  d.append(title,box,result,close);document.body.append(d);d.addEventListener('close',()=>d.remove(),{once:true});
  if(!ready)result.textContent=hint?'禮物提示：'+(name||'爸媽還在準備驚喜'):'到 '+h+'% 可以先看提示，達 '+n+'% 就能拆禮物。';
  else if(!name)result.textContent='已達標！爸媽還在準備這一份禮物。';
- else if(opened)result.textContent=name;
+ else if(opened){
+  result.textContent=name;
+  const reset=document.createElement('button');reset.type='button';reset.textContent='復原為未拆封';
+  reset.onclick=()=>{try{localStorage.removeItem(giftStorageKey+':'+n);}catch{message('無法復原，請確認瀏覽器允許儲存設定。',true);return;}d.close();renderGifts(t,parent);$('gift-track').querySelectorAll('button')[giftStages.findIndex(([goal])=>goal===n)]?.focus();message('已復原為未拆封');};
+  d.insertBefore(reset,close);
+ }
  d.showModal();
  if(ready&&name&&!opened){
   result.textContent='正在拆開禮物…';
