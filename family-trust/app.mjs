@@ -59,13 +59,20 @@ function renderGifts(t,parent){
   track=document.createElement('div');track.id='gift-track';track.setAttribute('aria-label','禮物里程碑');$('bar').parentElement.append(track);
   const hints=document.createElement('div');hints.id='gift-hints';$('bar').parentElement.parentElement.append(hints);
  }
+ const nextGoal=giftStages.flat().sort((a,b)=>a-b).find(n=>n*1000>t.score);
+ if(nextGoal&&!state.unlockedAt)$('encouragement').textContent='下一個目標 '+nextGoal+'%，還差 '+pct(nextGoal*1000-t.score)+'。';
  track.replaceChildren();$('gift-hints').replaceChildren();
  for(const [n,h] of giftStages){
   const {ready,hint}=giftStatus(n,h,t), opened=giftWasOpened(n), name=giftText(n);
   const b=document.createElement('button');b.type='button';b.style.setProperty('--at',((n-80)*5)+'%');b.dataset.ready=ready;b.setAttribute('aria-label',n+'% 禮物：'+(ready?(opened?'已拆封':'可以拆封'):hint?'可看提示':'尚未達標'));
   b.append(document.createTextNode(ready&&opened?'🎉':'🎁'));const label=document.createElement('small');label.textContent=n+'%';b.append(label);
-  b.onclick=()=>showGift(n,h,t,parent);track.append(b);
-  if(hint&&!ready){const tag=document.createElement('span');tag.className='gift-hint';tag.textContent='🔎 '+n+'% 禮物提示：'+(name||'爸媽還在準備驚喜');$('gift-hints').append(tag);}
+  if(hint&&!ready){
+   b.setAttribute('aria-expanded','false');b.setAttribute('aria-controls','gift-hints');
+   b.onclick=()=>{const expanded=b.getAttribute('aria-expanded')==='true';const panel=$('gift-hints');panel.replaceChildren();b.setAttribute('aria-expanded',String(!expanded));if(expanded)return;
+    const tag=document.createElement('span');tag.className='gift-hint';tag.style.marginLeft=n===90?'auto':'';if(n===90)tag.style.marginRight='auto';else panel.style.justifyContent='flex-end';if(n===90)panel.style.justifyContent='center';
+    tag.textContent=n+'% 禮物：'+(name||'爸媽還在準備驚喜')+'。達 '+n+'% 可以拆封。';panel.append(tag);};
+  }else b.onclick=()=>showGift(n,h,t,parent);
+  track.append(b);
  }
  if(parent)renderGiftSettings();
 }
